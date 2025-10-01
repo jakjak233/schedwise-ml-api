@@ -5,6 +5,26 @@ import sys
 from datetime import datetime
 from ml_scheduler import ReinforcementLearningScheduler
 import traceback
+import os
+import mysql.connector  # ADD THIS LINE
+
+# === DATABASE CONNECTION CODE ===
+db_config = {
+    'host': os.getenv('DB_HOST'),
+    'database': os.getenv('DB_NAME'), 
+    'user': os.getenv('DB_USERNAME'),
+    'password': os.getenv('DB_PASSWORD')
+}
+
+def connect_db():
+    try:
+        conn = mysql.connector.connect(**db_config)
+        print("Database connected successfully!")
+        return conn
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        return None
+# === END DATABASE CODE ===
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -149,10 +169,37 @@ def health_check():
             'error': str(e)
         }), 500
 
+@app.route('/api/test-db', methods=['GET'])
+def test_database():
+    """Test database connection endpoint"""
+    try:
+        conn = connect_db()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'success': True,
+                'message': 'Database connection successful',
+                'test_query': result[0]
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Database connection failed'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == "__main__":
     try:
         logging.info("Starting ML API server...")
         app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         logging.error(f"Failed to start server: {e}")
-        traceback.print_exc() 
+        traceback.print_exc()
